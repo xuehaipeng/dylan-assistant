@@ -142,7 +142,7 @@ Environment variables (`.env`):
 ```env
 # API Keys
 OPENROUTER_API_KEY=your_key_here
-AMAP_API_KEY=b0c4d71f4effc07c231703989e59f03b
+AMAP_API_KEY=your_amap_api_key
 
 # LLM Settings
 LLM_MODEL=qwen/qwen3-next-80b-a3b-instruct
