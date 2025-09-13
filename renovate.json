@@ -1,0 +1,36 @@
+{
+  "extends": [
+    "config:base"
+  ],
+  "python": {
+    "enabled": true
+  },
+  "pip_requirements": {
+    "fileMatch": ["requirements\\.txt$", "requirements-.*\\.txt$"]
+  },
+  "pip_setup": {
+    "enabled": true
+  },
+  "pyproject": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["^langchain", "^langgraph"],
+      "groupName": "langchain packages"
+    },
+    {
+      "matchPackagePatterns": ["^pytest"],
+      "groupName": "testing packages"
+    }
+  ],
+  "timezone": "UTC",
+  "schedule": ["every weekend"],
+  "prConcurrentLimit": 3,
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore(deps):"
+}
