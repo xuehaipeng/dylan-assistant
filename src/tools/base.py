@@ -4,11 +4,13 @@ Base tool definitions and registry
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import Tool, StructuredTool
 from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.tools.tavily_search import TavilySearchResults
 from pydantic import BaseModel, Field
 import httpx
 import json
 from datetime import datetime
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,7 @@ async def get_current_time(timezone: Optional[str] = None) -> str:
         return f"Current time: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     except Exception as e:
         # Fallback to UTC
-        now = datetime.utcnow()
+        now = datetime.now(ZoneInfo("UTC"))
         return f"Current time (UTC): {now.strftime('%Y-%m-%d %H:%M:%S')}"
 
 
@@ -135,11 +137,11 @@ async def calculate(expression: str) -> str:
         }
         
         def eval_expr(node):
-            if isinstance(node, ast.Constant):  # Modern way (Python 3.8+)
+            if isinstance(node, ast.Constant):
                 if isinstance(node.value, (int, float)):
                     return node.value
                 raise TypeError(f"Unsupported constant type {type(node.value)}")
-            elif isinstance(node, ast.Num):  # Backward compatibility
+            elif isinstance(node, ast.Constant):
                 return node.n
             elif isinstance(node, ast.BinOp):
                 return ops[type(node.op)](eval_expr(node.left), eval_expr(node.right))
@@ -203,6 +205,15 @@ def get_all_tools() -> List[Tool]:
         func=search_web
     )
     tools.append(search_tool)
+
+    # Tavily web search tool (requires TAVILY_API_KEY)
+    if os.getenv("TAVILY_API_KEY"):
+        try:
+            tavily_tool = TavilySearchResults(max_results=5)
+            tools.append(tavily_tool)
+            logger.info("Loaded TavilySearchResults tool")
+        except Exception as e:
+            logger.warning(f"Failed to initialize TavilySearchResults: {e}")
     
     # Time tool
     time_tool = Tool(

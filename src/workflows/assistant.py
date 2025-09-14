@@ -56,9 +56,8 @@ class AssistantWorkflow:
         # Create workflow graph
         workflow = StateGraph(AgentState)
         
-        # Bind tools to LLM
-        all_tools = self.tools + self.mcp_manager.get_tools()
-        llm_with_tools = self.llm.bind_tools(all_tools)
+        # Native tools are always available; MCP tools will be fetched per turn
+        native_tools = list(self.tools)
         
         # Define nodes
         async def agent_node(state: AgentState) -> AgentState:
@@ -70,7 +69,17 @@ class AssistantWorkflow:
                 system_prompt = self._get_system_prompt()
                 messages = [SystemMessage(content=system_prompt)] + messages
             
-            # Call LLM with tools
+            # Fetch MCP tools and bind to the model so the LLM can call them
+            try:
+                mcp_tools = await self.mcp_manager.get_tools()
+            except Exception as e:
+                logger.warning(f"Failed to load MCP tools: {e}")
+                mcp_tools = []
+
+            available_tools = native_tools + mcp_tools
+            llm_with_tools = self.llm.bind_tools(available_tools)
+
+            # Call LLM with all available tools
             response = await llm_with_tools.ainvoke(messages)
             
             # Update state
@@ -87,12 +96,19 @@ class AssistantWorkflow:
             tool_calls = last_message.tool_calls
             results = []
             
+            # Ensure MCP tools are available before executing tool calls
+            try:
+                mcp_tools = await self.mcp_manager.get_tools()
+            except Exception:
+                mcp_tools = []
+            all_tools = {t.name: t for t in (self.tools + mcp_tools)}
+
             for tool_call in tool_calls:
                 tool_name = tool_call["name"]
                 tool_args = tool_call["args"]
                 
                 # Find and execute tool
-                tool = self._find_tool(tool_name)
+                tool = all_tools.get(tool_name)
                 if tool:
                     try:
                         result = await tool.ainvoke(tool_args)
@@ -185,8 +201,11 @@ class AssistantWorkflow:
         """
     
     def _find_tool(self, tool_name: str) -> Optional[Tool]:
-        """Find a tool by name"""
-        all_tools = self.tools + self.mcp_manager.get_tools()
+        """Find a tool by name among native and last-fetched MCP tools"""
+        try:
+            all_tools = self.tools + self.mcp_manager.get_cached_tools()
+        except Exception:
+            all_tools = list(self.tools)
         for tool in all_tools:
             if tool.name == tool_name:
                 return tool

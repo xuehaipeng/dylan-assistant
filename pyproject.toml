@@ -37,6 +37,8 @@ dependencies = [
     "langchain-openai>=0.0.5",
     "langchain-community>=0.0.10",
     "langgraph>=0.0.20",
+    "langchain-mcp-adapters>=0.0.7",
+    "ddgs>=9.5.5",
     
     # API framework
     "fastapi>=0.100.0",
@@ -51,8 +53,8 @@ dependencies = [
     "duckduckgo-search>=3.9.0",
     "rich>=13.5.0",
     
-    # MCP (Model Context Protocol)
-    "mcp>=0.1.0",
+    # MCP (Model Context Protocol) via adapters
+    # "mcp>=0.1.0",  # removed: using langchain-mcp-adapters
 ]
 
 [project.optional-dependencies]

@@ -33,6 +33,12 @@ async def lifespan(app: FastAPI):
     # Initialize workflow (tolerate missing/invalid LLM configuration)
     try:
         workflow = AssistantWorkflow()
+        # Prefetch MCP tools (best-effort) for visibility
+        try:
+            tools = await workflow.mcp_manager.get_tools()
+            logger.info("MCP tools available at startup: %s", [t.name for t in tools])
+        except Exception as e:
+            logger.warning("Could not prefetch MCP tools: %s", e)
     except Exception as e:
         logger.error(f"Failed to initialize AssistantWorkflow: {e}")
         workflow = None
@@ -105,6 +111,18 @@ async def root():
         "docs": "/docs",
         "openapi": "/openapi.json"
     }
+@app.get(f"{settings.api_prefix}/mcp/tools")
+async def list_mcp_tools():
+    """List available MCP tools (best-effort)."""
+    if not workflow:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    try:
+        tools = await workflow.mcp_manager.get_tools()
+        return {"tools": [{"name": t.name, "description": getattr(t, "description", "")} for t in tools]}
+    except Exception as e:
+        logger.error(f"Failed to list MCP tools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.post(f"{settings.api_prefix}/chat")

@@ -3,9 +3,10 @@ Core configuration management for Dylan Assistant
 """
 from typing import Optional, Dict, Any, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 from pathlib import Path
 import os
+import json
 
 
 class Settings(BaseSettings):
@@ -39,8 +40,40 @@ class Settings(BaseSettings):
         return {}
     
     mcp_servers: Dict[str, Dict[str, Any]] = Field(
-        default_factory=_default_mcp_servers
+        default_factory=_default_mcp_servers,
+        env="MCP_SERVERS",
     )
+
+    @field_validator("mcp_servers", mode="before")
+    @classmethod
+    def _coerce_mcp_servers(cls, value: Any) -> Dict[str, Dict[str, Any]]:
+        """Allow multiple input shapes:
+        - JSON string
+        - Mapping already
+        - Mapping wrapped under key 'mcpServers'
+        - Fallback to env var MCP_CONFIG if present and value is empty
+        """
+        # If empty, try fallback env var that may contain the provided JSON structure
+        if not value:
+            raw = os.getenv("MCP_CONFIG") or os.getenv("MCP_SERVERS_JSON")
+            if raw:
+                value = raw
+
+        # Parse JSON string to object
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except Exception:
+                return {}
+
+        # Unwrap if nested under 'mcpServers'
+        if isinstance(value, dict) and "mcpServers" in value:
+            value = value.get("mcpServers") or {}
+
+        # Ensure final type is a dict[str, dict]
+        if isinstance(value, dict):
+            return {str(k): (dict(v) if isinstance(v, dict) else {}) for k, v in value.items()}
+        return {}
     
     # Application Settings
     app_name: str = Field(default="Dylan Assistant", env="APP_NAME")
